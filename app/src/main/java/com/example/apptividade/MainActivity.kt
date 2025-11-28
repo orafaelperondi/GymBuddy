@@ -66,7 +66,7 @@ fun AppNavigation() {
         if (currentUser == null) {
             currentScreen = "login"
         } else {
-            // Verifica regra dos 30 dias
+            // Verifica regra dos 30 dias no Firestore
             db.collection("users").document(currentUser!!.uid).get()
                 .addOnSuccessListener { document ->
                     if (document.exists()) {
@@ -80,10 +80,12 @@ fun AppNavigation() {
                             currentScreen = "dashboard"
                         }
                     } else {
+                        // Usuário novo sem documento
                         currentScreen = "checkin"
                     }
                 }
                 .addOnFailureListener {
+                    // Fallback em caso de erro de conexão
                     currentScreen = "dashboard"
                 }
         }
@@ -97,32 +99,22 @@ fun AppNavigation() {
     }
 }
 
-// --- COMPONENTE NOVO: TABELA DE IMC (POP-UP) ---
+// --- COMPONENTE: TABELA DE IMC (POP-UP) ---
 
 @Composable
 fun IMCTableDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "Referência de IMC",
-                fontWeight = FontWeight.Bold,
-                color = AppTextBlack
-            )
-        },
+        title = { Text("Referência de IMC", fontWeight = FontWeight.Bold, color = AppTextBlack) },
         text = {
             Column {
                 Text("Entenda seu resultado:", fontSize = 14.sp, color = AppTextGray)
                 Spacer(modifier = Modifier.height(16.dp))
-
-                // Cabeçalho da tabela
                 Row(modifier = Modifier.fillMaxWidth().background(AppYellowGreen, RoundedCornerShape(4.dp)).padding(8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("IMC", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Text("Classificação", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // Linhas da tabela
                 IMCTableRow("< 18.5", "Abaixo do peso", Color.Gray)
                 IMCTableRow("18.5 - 24.9", "Peso normal", AppLevelGreen)
                 IMCTableRow("25.0 - 29.9", "Sobrepeso", AppOrange)
@@ -131,28 +123,21 @@ fun IMCTableDialog(onDismiss: () -> Unit) {
                 IMCTableRow("≥ 40.0", "Obesidade Grau III", Color(0xFFC62828))
             }
         },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Entendi", color = AppGreen, fontWeight = FontWeight.Bold)
-            }
-        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Entendi", color = AppGreen, fontWeight = FontWeight.Bold) } },
         containerColor = Color.White
     )
 }
 
 @Composable
 fun IMCTableRow(range: String, category: String, color: Color) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(range, fontSize = 14.sp, color = AppTextBlack)
         Text(category, fontSize = 14.sp, color = color, fontWeight = FontWeight.Bold)
     }
     HorizontalDivider(thickness = 0.5.dp, color = Color.LightGray)
 }
 
-// --- TELA DE CHECK-IN (IMC) ---
+// --- TELA DE CHECK-IN (COMPLETA: BIO + HORÁRIOS) ---
 
 @Composable
 fun CheckInScreen(onCheckInComplete: () -> Unit) {
@@ -160,44 +145,109 @@ fun CheckInScreen(onCheckInComplete: () -> Unit) {
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
 
+    // Variáveis
     var peso by remember { mutableStateOf("") }
     var altura by remember { mutableStateOf("") }
+    var sexo by remember { mutableStateOf("Masculino") }
+    var horarioInicio by remember { mutableStateOf("") }
+    var horarioFim by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Top
     ) {
-        Icon(Icons.Default.MonitorWeight, "Balança", Modifier.size(80.dp), tint = AppGreen)
-        Spacer(Modifier.height(24.dp))
-        Text("Hora do Check-in! 📋", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = AppTextBlack)
-        Text("Atualize suas medidas para acompanhar a evolução.", fontSize = 14.sp, color = AppTextGray)
-        Spacer(Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+        Icon(Icons.Default.ManageAccounts, "Dados", Modifier.size(60.dp), tint = AppGreen)
+        Spacer(modifier = Modifier.height(16.dp))
 
+        Text("Configuração de Perfil", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = AppTextBlack)
+        Text("Precisamos de alguns dados para personalizar seu treino e hidratação.", fontSize = 14.sp, color = AppTextGray, textAlign = TextAlign.Center)
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 1. PERFIL BIOLÓGICO
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = AppGray.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Perfil Biológico", fontWeight = FontWeight.Bold, color = AppTextBlack)
+                Text("Importante para cálculos de metabolismo.", fontSize = 12.sp, color = AppTextGray)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = sexo == "Masculino", onClick = { sexo = "Masculino" }, colors = RadioButtonDefaults.colors(selectedColor = AppGreen))
+                    Text("Homem", modifier = Modifier.padding(end = 16.dp))
+
+                    RadioButton(selected = sexo == "Feminino", onClick = { sexo = "Feminino" }, colors = RadioButtonDefaults.colors(selectedColor = AppGreen))
+                    Text("Mulher")
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 2. MEDIDAS
         OutlinedTextField(
             value = peso,
             onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) peso = it },
             label = { Text("Peso (kg)") },
             modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppGreen, focusedLabelColor = AppGreen)
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = altura,
             onValueChange = { if (it.all { c -> c.isDigit() }) altura = it },
             label = { Text("Altura (cm)") },
             modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppGreen, focusedLabelColor = AppGreen)
         )
-        Spacer(Modifier.height(32.dp))
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 3. PERÍODO ATIVO
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = AppYellowGreen.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.NotificationsActive, null, Modifier.size(16.dp), tint = AppGreen)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Período Ativo", fontWeight = FontWeight.Bold, color = AppTextBlack)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Defina o horário em que você está acordado. Enviaremos lembretes de água e treino apenas dentro deste intervalo.", fontSize = 12.sp, color = AppTextGray)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = horarioInicio, onValueChange = { if (it.length <= 5) horarioInicio = it }, label = { Text("Início (Ex: 07:00)") },
+                        modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppGreen, focusedLabelColor = AppGreen)
+                    )
+                    OutlinedTextField(
+                        value = horarioFim, onValueChange = { if (it.length <= 5) horarioFim = it }, label = { Text("Fim (Ex: 22:00)") },
+                        modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppGreen, focusedLabelColor = AppGreen)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
 
         if (isLoading) {
             CircularProgressIndicator(color = AppGreen)
         } else {
             Button(
                 onClick = {
-                    if (peso.isNotEmpty() && altura.isNotEmpty()) {
+                    if (peso.isNotEmpty() && altura.isNotEmpty() && horarioInicio.isNotEmpty() && horarioFim.isNotEmpty()) {
                         isLoading = true
                         val pesoFloat = peso.toFloatOrNull()
                         val alturaInt = altura.toIntOrNull()
@@ -208,6 +258,7 @@ fun CheckInScreen(onCheckInComplete: () -> Unit) {
                             val uid = auth.currentUser!!.uid
                             val timestamp = System.currentTimeMillis()
 
+                            // Dados para Histórico (Métricas variáveis)
                             val historicoData = hashMapOf(
                                 "data" to timestamp,
                                 "peso" to pesoFloat,
@@ -215,39 +266,50 @@ fun CheckInScreen(onCheckInComplete: () -> Unit) {
                                 "imc" to imc
                             )
 
+                            // Dados do Perfil (Fixos + Variáveis atuais)
+                            val userData = mapOf(
+                                "ultimoCheckIn" to timestamp,
+                                "pesoAtual" to pesoFloat,
+                                "alturaAtual" to alturaInt,
+                                "imcAtual" to imc,
+                                "sexo" to sexo,
+                                "periodoAtivoInicio" to horarioInicio,
+                                "periodoAtivoFim" to horarioFim
+                            )
+
                             // 1. Atualiza Perfil
-                            db.collection("users").document(uid).update(
-                                mapOf("ultimoCheckIn" to timestamp, "pesoAtual" to pesoFloat, "alturaAtual" to alturaInt, "imcAtual" to imc)
-                            ).addOnSuccessListener {
-                                // 2. Salva no Histórico para comparação
-                                db.collection("users").document(uid).collection("historico_imc").add(historicoData)
-                                    .addOnSuccessListener {
-                                        isLoading = false
-                                        onCheckInComplete()
-                                    }
-                            }.addOnFailureListener {
-                                // Fallback se o user não existir ainda
-                                db.collection("users").document(uid).set(
-                                    mapOf("ultimoCheckIn" to timestamp, "pesoAtual" to pesoFloat, "imcAtual" to imc, "nivel" to 1, "xp" to 0)
-                                ).addOnSuccessListener {
+                            db.collection("users").document(uid).update(userData)
+                                .addOnSuccessListener {
+                                    // 2. Salva Histórico
                                     db.collection("users").document(uid).collection("historico_imc").add(historicoData)
                                         .addOnSuccessListener { isLoading = false; onCheckInComplete() }
                                 }
-                            }
-                        }
-                    }
+                                .addOnFailureListener {
+                                    // Fallback para novo usuário
+                                    val novoMap = userData.toMutableMap()
+                                    novoMap["nivel"] = 1
+                                    novoMap["xp"] = 0
+                                    db.collection("users").document(uid).set(novoMap)
+                                        .addOnSuccessListener {
+                                            db.collection("users").document(uid).collection("historico_imc").add(historicoData)
+                                                .addOnSuccessListener { isLoading = false; onCheckInComplete() }
+                                        }
+                                }
+                        } else { isLoading = false; Toast.makeText(context, "Números inválidos", Toast.LENGTH_SHORT).show() }
+                    } else { Toast.makeText(context, "Preencha todos os campos", Toast.LENGTH_SHORT).show() }
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = AppGreen),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("SALVAR", color = AppTextBlack, fontWeight = FontWeight.Bold)
+                Text("SALVAR PERFIL COMPLETO", color = AppTextBlack, fontWeight = FontWeight.Bold)
             }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
 
-// --- DASHBOARD ATUALIZADO ---
+// --- DASHBOARD (Com Card Clicável) ---
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -255,33 +317,25 @@ fun GymBuddyDashboard(userName: String, onLogout: () -> Unit) {
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
 
-    // Variáveis para guardar a evolução
     var imcInicial by remember { mutableStateOf(0f) }
     var imcAtual by remember { mutableStateOf(0f) }
     var pesoPerdido by remember { mutableStateOf(0f) }
     var carregouEvolucao by remember { mutableStateOf(false) }
-
-    // Controle do Pop-up da Tabela
     var showImcTable by remember { mutableStateOf(false) }
 
-    // Busca dados para comparar
     LaunchedEffect(Unit) {
         val uid = auth.currentUser?.uid
         if (uid != null) {
             db.collection("users").document(uid).collection("historico_imc")
-                .orderBy("data", Query.Direction.ASCENDING)
-                .get()
+                .orderBy("data", Query.Direction.ASCENDING).get()
                 .addOnSuccessListener { result ->
                     if (!result.isEmpty) {
                         val primeiro = result.documents.first()
                         val ultimo = result.documents.last()
-
                         val peso1 = primeiro.getDouble("peso")?.toFloat() ?: 0f
                         val peso2 = ultimo.getDouble("peso")?.toFloat() ?: 0f
-
                         imcInicial = primeiro.getDouble("imc")?.toFloat() ?: 0f
                         imcAtual = ultimo.getDouble("imc")?.toFloat() ?: 0f
-
                         pesoPerdido = peso1 - peso2
                         carregouEvolucao = true
                     }
@@ -289,7 +343,6 @@ fun GymBuddyDashboard(userName: String, onLogout: () -> Unit) {
         }
     }
 
-    // Mostra o Pop-up se a variável for verdadeira
     if (showImcTable) {
         IMCTableDialog(onDismiss = { showImcTable = false })
     }
@@ -303,9 +356,7 @@ fun GymBuddyDashboard(userName: String, onLogout: () -> Unit) {
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier.padding(innerPadding).padding(16.dp).verticalScroll(rememberScrollState())
-        ) {
+        Column(modifier = Modifier.padding(innerPadding).padding(16.dp).verticalScroll(rememberScrollState())) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -322,13 +373,9 @@ fun GymBuddyDashboard(userName: String, onLogout: () -> Unit) {
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- CARD DE EVOLUÇÃO (AGORA CLICÁVEL) ---
             if (carregouEvolucao) {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // AQUI ESTÁ A MÁGICA: Ao clicar, abre o pop-up
-                        .clickable { showImcTable = true },
+                    modifier = Modifier.fillMaxWidth().clickable { showImcTable = true },
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     border = BorderStroke(1.dp, AppGreen)
@@ -339,18 +386,11 @@ fun GymBuddyDashboard(userName: String, onLogout: () -> Unit) {
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("📊 Sua Evolução (Toque para ver tabela)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AppTextBlack)
                         }
-
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column {
-                                Text("Início", fontSize = 12.sp, color = AppTextGray)
-                                Text("IMC: ${String.format("%.1f", imcInicial)}", fontWeight = FontWeight.Bold)
-                            }
+                            Column { Text("Início", fontSize = 12.sp, color = AppTextGray); Text("IMC: ${String.format("%.1f", imcInicial)}", fontWeight = FontWeight.Bold) }
                             Icon(Icons.AutoMirrored.Filled.TrendingUp, null, tint = AppGreen)
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text("Atual", fontSize = 12.sp, color = AppTextGray)
-                                Text("IMC: ${String.format("%.1f", imcAtual)}", fontWeight = FontWeight.Bold)
-                            }
+                            Column(horizontalAlignment = Alignment.End) { Text("Atual", fontSize = 12.sp, color = AppTextGray); Text("IMC: ${String.format("%.1f", imcAtual)}", fontWeight = FontWeight.Bold) }
                         }
                         if (pesoPerdido > 0) {
                             Spacer(modifier = Modifier.height(8.dp))
@@ -361,7 +401,6 @@ fun GymBuddyDashboard(userName: String, onLogout: () -> Unit) {
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Cards Padrão
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 StreakCard(modifier = Modifier.weight(1f))
                 LevelCard(modifier = Modifier.weight(1f))
@@ -377,13 +416,12 @@ fun GymBuddyDashboard(userName: String, onLogout: () -> Unit) {
                 StatCard("Amigos ativos", "7", "hoje", Icons.Default.People, Modifier.weight(1f))
             }
             Spacer(modifier = Modifier.height(16.dp))
-
             DailyChallengeCard()
         }
     }
 }
 
-// --- TELA LOGIN (Mantida igual, resumida aqui para economizar espaço se necessário) ---
+// --- TELA LOGIN ---
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit) {
     val context = LocalContext.current
@@ -420,7 +458,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     isLoading = true
                     auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
                         if (task.isSuccessful) {
-                            // Cria usuário (sem dados ainda, o checkin preenche)
                             onLoginSuccess()
                         } else { isLoading = false; Toast.makeText(context, "Erro: ${task.exception?.message}", Toast.LENGTH_SHORT).show() }
                     }
@@ -430,7 +467,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     }
 }
 
-// --- COMPONENTES VISUAIS (Mantidos) ---
+// --- COMPONENTES VISUAIS (Cards Padrão) ---
 @Composable
 fun StreakCard(modifier: Modifier = Modifier) {
     Card(modifier, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = AppGray)) {
