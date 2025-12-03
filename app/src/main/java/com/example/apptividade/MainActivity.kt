@@ -149,7 +149,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onNavigateToSignUp: () -> Unit, onNa
     Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Box(Modifier.size(100.dp).clip(CircleShape).background(AppYellowGreen), contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.ic_launcher_foreground), null, Modifier.size(60.dp), tint = AppGreen) }
         Spacer(Modifier.height(32.dp))
-        Text("Bem-vindo de volta!", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = AppTextBlack)
+        Text("GymBuddy", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = AppTextBlack)
         Spacer(Modifier.height(32.dp))
         OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("E-mail") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
         Spacer(Modifier.height(16.dp))
