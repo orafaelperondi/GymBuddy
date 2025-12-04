@@ -1,5 +1,6 @@
 package com.example.apptividade
 
+import androidx.compose.foundation.Image
 import android.Manifest
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -147,7 +148,10 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onNavigateToSignUp: () -> Unit, onNa
     var isLoading by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Box(Modifier.size(100.dp).clip(CircleShape).background(AppYellowGreen), contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.ic_launcher_foreground), null, Modifier.size(60.dp), tint = AppGreen) }
+        Box(Modifier.size(120.dp).clip(CircleShape).background(AppYellowGreen), contentAlignment = Alignment.Center) { Image(
+            painter = painterResource(id = R.drawable.minha_logo), // Troque pelo nome do seu arquivo
+            contentDescription = "Logo",
+            modifier = Modifier.size(120.dp) )}
         Spacer(Modifier.height(32.dp))
         Text("GymBuddy", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = AppTextBlack)
         Spacer(Modifier.height(32.dp))
